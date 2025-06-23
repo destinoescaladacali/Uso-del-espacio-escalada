@@ -145,7 +145,7 @@
 
   function cargarDisponibilidad() {
     const script = document.createElement("script");
-   script.src = `${API_URL}?action=obtenerDisponibilidad&callback=mostrarDiasDisponibles&fecha=${encodeURIComponent(new Date().toISOString())}`;
+  script.src = `${API_URL}?action=obtenerDisponibilidad&callback=mostrarDiasDisponibles`;
 
     document.body.appendChild(script);
   }
