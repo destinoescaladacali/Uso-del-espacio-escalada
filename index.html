@@ -144,12 +144,11 @@
   }
 
   function cargarDisponibilidad() {
-    const script = document.createElement("script");
-  script.src = `${API_URL}?action=obtenerDisponibilidad&callback=mostrarDiasDisponibles`;
-
-    document.body.appendChild(script);
-  }
-
+  const script = document.createElement("script");
+  const fechaActual = new Date().toISOString();
+  script.src = `${API_URL}?action=obtenerDisponibilidad&callback=mostrarDiasDisponibles&fecha=${encodeURIComponent(fechaActual)}`;
+  document.body.appendChild(script);
+}
   function seleccionarDia(dia, boton) {
     diaSeleccionado = dia;
     document.querySelectorAll("#dias button").forEach(b => b.classList.remove("active-day"));
