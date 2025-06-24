@@ -183,24 +183,29 @@
   }
 
   function obtenerFechaDesdeDiaYHora(diaTexto, horaTexto) {
-    const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-    const hoy = new Date();
-    const indiceHoy = hoy.getDay();
-    const indiceObjetivo = diasSemana.indexOf(diaTexto);
-    let diasAdelante = (indiceObjetivo - indiceHoy + 7) % 7;
-    if (diasAdelante === 0) {
-      const [h, m] = horaTexto.split(":").map(n => parseInt(n));
-      const horaActual = hoy.getHours() + hoy.getMinutes() / 60;
-      const horaReserva = h + (m || 0) / 60;
-      if (horaActual >= horaReserva) diasAdelante = 7;
-    }
+  const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const hoy = new Date();
+  const indiceHoy = hoy.getDay();
+  const indiceObjetivo = diasSemana.indexOf(diaTexto);
+  let diasAdelante = (indiceObjetivo - indiceHoy + 7) % 7;
 
-    const fecha = new Date();
-    fecha.setDate(hoy.getDate() + diasAdelante);
-    const [hora, minuto] = horaTexto.split(":").map(n => parseInt(n));
-    fecha.setHours(hora, minuto || 0, 0, 0);
-    return fecha;
-  }
+  const fechaObjetivo = new Date(hoy);
+  fechaObjetivo.setDate(hoy.getDate() + diasAdelante);
+
+  const [inicio, _fin] = horaTexto.split("a");
+  const [horaStr, minutoStr] = inicio.trim().split(":");
+  let hora = parseInt(horaStr);
+  let minuto = parseInt(minutoStr);
+  const esPM = inicio.toLowerCase().includes("p.m.");
+  const esAM = inicio.toLowerCase().includes("a.m.");
+
+  if (esPM && hora !== 12) hora += 12;
+  if (esAM && hora === 12) hora = 0;
+
+  fechaObjetivo.setHours(hora, minuto || 0, 0, 0);
+  return fechaObjetivo;
+}
+
 
   document.getElementById("reservaForm").addEventListener("submit", async e => {
     e.preventDefault();
