@@ -119,146 +119,144 @@
   </div>
 
   <script>
-    const API_URL = 'https://script.google.com/macros/s/AKfycbykUuF159VAhVosvXT-8EJtcdiFmIFNE5StnKuE2HcafvTv0zdT5NkcF-GUgsyntDmI/exec';
-    let diaSeleccionado = "";
-    let disponibilidad = {};
+  const API_URL = 'https://script.google.com/macros/s/AKfycbykUuF159VAhVosvXT-8EJtcdiFmIFNE5StnKuE2HcafvTv0zdT5NkcF-GUgsyntDmI/exec';
+  let diaSeleccionado = "";
+  let disponibilidad = {};
 
-    function mostrarDiasDisponibles(data) {
-      if (!data || typeof data !== 'object') {
-        mostrarMensaje("Error al cargar disponibilidad.", false);
-        return;
-      }
-
-      disponibilidad = data;
-      const diasDiv = document.getElementById("dias");
-      diasDiv.innerHTML = "";
-      Object.keys(disponibilidad).forEach(dia => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = dia;
-        btn.onclick = () => seleccionarDia(dia, btn);
-        diasDiv.appendChild(btn);
-      });
+  function mostrarDiasDisponibles(data) {
+    if (!data || typeof data !== 'object') {
+      mostrarMensaje("Error al cargar disponibilidad.", false);
+      return;
     }
 
-    function cargarDisponibilidad() {
-      const script = document.createElement("script");
-      const fechaActual = new Date().toISOString();
-      script.src = `${API_URL}?action=obtenerDisponibilidad&callback=mostrarDiasDisponibles&fecha=${encodeURIComponent(fechaActual)}`;
-      document.body.appendChild(script);
-    }
+    disponibilidad = data;
+    const diasDiv = document.getElementById("dias");
+    diasDiv.innerHTML = "";
+    Object.keys(disponibilidad).forEach(dia => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = dia;
+      btn.onclick = () => seleccionarDia(dia, btn);
+      diasDiv.appendChild(btn);
+    });
+  }
 
-    function seleccionarDia(dia, boton) {
-      diaSeleccionado = dia;
-      document.querySelectorAll("#dias button").forEach(b => b.classList.remove("active-day"));
-      boton.classList.add("active-day");
+  function cargarDisponibilidad() {
+    const script = document.createElement("script");
+    const fechaActual = new Date().toISOString();
+    script.src = `${API_URL}?action=obtenerDisponibilidad&callback=mostrarDiasDisponibles&fecha=${encodeURIComponent(fechaActual)}`;
+    document.body.appendChild(script);
+  }
 
-      const select = document.getElementById("horario");
-      select.innerHTML = "";
+  function seleccionarDia(dia, boton) {
+    diaSeleccionado = dia;
+    document.querySelectorAll("#dias button").forEach(b => b.classList.remove("active-day"));
+    boton.classList.add("active-day");
 
-      const ahora = new Date();
+    const select = document.getElementById("horario");
+    select.innerHTML = "";
 
-      const horariosFiltrados = (disponibilidad[dia] || []).filter(h => {
-        const fechaObjetivo = obtenerFechaDesdeDiaYHora(dia, h);
-        const diferenciaHoras = (fechaObjetivo - ahora) / (1000 * 60 * 60);
-        return diferenciaHoras >= 2 && diferenciaHoras <= 15;
-      });
+    const ahora = new Date();
 
-      if (horariosFiltrados.length === 0) {
+    const horariosFiltrados = (disponibilidad[dia] || []).filter(h => {
+      const fechaObjetivo = obtenerFechaDesdeDiaYHora(dia, h);
+      const diferenciaMs = fechaObjetivo - ahora;
+      const diferenciaHoras = diferenciaMs / (1000 * 60 * 60);
+      return diferenciaHoras >= 2;
+    });
+
+    if (horariosFiltrados.length === 0) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "⛔ Sin horarios disponibles para este día";
+      select.appendChild(opt);
+      select.disabled = true;
+    } else {
+      horariosFiltrados.forEach(h => {
         const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = "⛔ No hay horarios disponibles (deben reservarse entre 2 y 15 horas antes)";
+        opt.value = h;
+        opt.textContent = h;
         select.appendChild(opt);
-        select.disabled = true;
-      } else {
-        horariosFiltrados.forEach(h => {
-          const opt = document.createElement("option");
-          opt.value = h;
-          opt.textContent = h;
-          select.appendChild(opt);
-        });
-        select.disabled = false;
-      }
+      });
+      select.disabled = false;
+    }
+  }
+
+  function obtenerFechaDesdeDiaYHora(diaTexto, horaTexto) {
+    const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+    const hoy = new Date();
+    const indiceHoy = hoy.getDay();
+    const indiceObjetivo = diasSemana.indexOf(diaTexto);
+    let diasAdelante = (indiceObjetivo - indiceHoy + 7) % 7;
+    if (diasAdelante === 0) {
+      const [h, m] = horaTexto.split(":").map(n => parseInt(n));
+      const horaActual = hoy.getHours() + hoy.getMinutes() / 60;
+      const horaReserva = h + (m || 0) / 60;
+      if (horaActual >= horaReserva) diasAdelante = 7;
     }
 
-    function obtenerFechaDesdeDiaYHora(diaTexto, horarioTexto) {
-      const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-      const hoy = new Date();
-      const indiceHoy = hoy.getDay();
-      const indiceObjetivo = diasSemana.indexOf(diaTexto);
-      let diasAdelante = (indiceObjetivo - indiceHoy + 7) % 7;
+    const fecha = new Date();
+    fecha.setDate(hoy.getDate() + diasAdelante);
+    const [hora, minuto] = horaTexto.split(":").map(n => parseInt(n));
+    fecha.setHours(hora, minuto || 0, 0, 0);
+    return fecha;
+  }
 
-      const horaInicioStr = horarioTexto.split(" - ")[0].trim();
-      let [horaMin, ampm] = horaInicioStr.split(" ");
-      let [hora, minutos] = horaMin.split(":").map(n => parseInt(n));
-      const isPM = ampm.toLowerCase().includes("p.m.");
-      if (hora === 12) {
-        hora = isPM ? 12 : 0;
-      } else if (isPM) {
-        hora += 12;
-      }
-
-      const fecha = new Date();
-      fecha.setDate(hoy.getDate() + diasAdelante);
-      fecha.setHours(hora, minutos || 0, 0, 0);
-      return fecha;
+  document.getElementById("reservaForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    const select = document.getElementById("horario");
+    if (!diaSeleccionado || select.disabled || !select.value) {
+      return mostrarMensaje("Selecciona un día con horarios disponibles", false);
     }
 
-    document.getElementById("reservaForm").addEventListener("submit", async e => {
-      e.preventDefault();
-      const select = document.getElementById("horario");
-      if (!diaSeleccionado || select.disabled || !select.value) {
-        return mostrarMensaje("Selecciona un día con horarios disponibles", false);
+    const form = e.target;
+    const data = new FormData(form);
+    data.append("dia", diaSeleccionado);
+
+    const body = new URLSearchParams();
+    for (const pair of data.entries()) body.append(pair[0], pair[1]);
+
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString()
+      });
+
+      const text = await res.text();
+      mostrarMensaje(text, text.includes("✅"));
+
+      if (text.includes("✅")) {
+        form.reset();
+        diaSeleccionado = "";
+        document.getElementById("horario").innerHTML = "";
+        document.querySelectorAll("#dias button").forEach(b => b.classList.remove("active-day"));
+        document.getElementById("otraReserva").style.display = "block";
+        cargarDisponibilidad();
       }
-
-      const form = e.target;
-      const data = new FormData(form);
-      data.append("dia", diaSeleccionado);
-
-      const body = new URLSearchParams();
-      for (const pair of data.entries()) body.append(pair[0], pair[1]);
-
-      try {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: body.toString()
-        });
-
-        const text = await res.text();
-        mostrarMensaje(text, text.includes("✅"));
-
-        if (text.includes("✅")) {
-          form.reset();
-          diaSeleccionado = "";
-          document.getElementById("horario").innerHTML = "";
-          document.querySelectorAll("#dias button").forEach(b => b.classList.remove("active-day"));
-          document.getElementById("otraReserva").style.display = "block";
-          cargarDisponibilidad();
-        }
-      } catch (error) {
-        mostrarMensaje("Error al enviar la reserva.", false);
-      }
-    });
-
-    function mostrarMensaje(msg, ok) {
-      const mensaje = document.getElementById("mensaje");
-      mensaje.className = ok ? "ok" : "err";
-      mensaje.textContent = msg;
-      mensaje.style.display = "block";
+    } catch (error) {
+      mostrarMensaje("Error al enviar la reserva.", false);
     }
+  });
 
-    document.getElementById("otraReserva").addEventListener("click", () => {
-      document.getElementById("reservaForm").reset();
-      document.getElementById("horario").innerHTML = "";
-      document.querySelectorAll("#dias button").forEach(b => b.classList.remove("active-day"));
-      document.getElementById("mensaje").style.display = "none";
-      document.getElementById("otraReserva").style.display = "none";
-      diaSeleccionado = "";
-      cargarDisponibilidad();
-    });
+  function mostrarMensaje(msg, ok) {
+    const mensaje = document.getElementById("mensaje");
+    mensaje.className = ok ? "ok" : "err";
+    mensaje.textContent = msg;
+    mensaje.style.display = "block";
+  }
 
+  document.getElementById("otraReserva").addEventListener("click", () => {
+    document.getElementById("reservaForm").reset();
+    document.getElementById("horario").innerHTML = "";
+    document.querySelectorAll("#dias button").forEach(b => b.classList.remove("active-day"));
+    document.getElementById("mensaje").style.display = "none";
+    document.getElementById("otraReserva").style.display = "none";
+    diaSeleccionado = "";
     cargarDisponibilidad();
+  });
+
+  cargarDisponibilidad();
   </script>
 </body>
 </html>
