@@ -72,14 +72,12 @@
     <h2>Reservas Escalada</h2>
     <form id="formulario">
 
-      <!-- Día y horario primero -->
       <label>Selecciona un día:</label>
       <select id="dia" name="dia" required></select>
 
       <label>Horario:</label>
       <select id="horario" name="horario" required></select>
 
-      <!-- Luego los datos del usuario -->
       <label>Nombre:</label>
       <input name="nombre" required />
 
@@ -97,6 +95,14 @@
   <script>
     const API = "https://script.google.com/macros/s/AKfycbykUuF159VAhVosvXT-8EJtcdiFmIFNE5StnKuE2HcafvTv0zdT5NkcF-GUgsyntDmI/exec";
 
+    // Carga la disponibilidad al cargar la página
+    function cargarDisponibilidad() {
+      const s = document.createElement("script");
+      s.src = `${API}?action=obtenerDisponibilidad&callback=mostrarDias`;
+      document.body.appendChild(s);
+    }
+
+    // Pinta los días y guarda la disponibilidad global
     function mostrarDias(data) {
       const diaSelect = document.getElementById("dia");
       diaSelect.innerHTML = '<option value="">Selecciona un día</option>';
@@ -109,6 +115,7 @@
       window.disponibilidad = data;
     }
 
+    // Al cambiar de día, carga horarios válidos (mínimo 2 horas antes)
     document.getElementById("dia").addEventListener("change", e => {
       const horarios = window.disponibilidad[e.target.value] || [];
       const horarioSelect = document.getElementById("horario");
@@ -127,6 +134,7 @@
       });
     });
 
+    // Calcula fecha y hora del horario en la semana actual
     function calcularFechaHora(dia, horaTexto) {
       const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
       const hoy = new Date();
@@ -137,7 +145,7 @@
       const fecha = new Date();
       fecha.setDate(hoy.getDate() + diasRestantes);
 
-      const [inicio] = horaTexto.split("a");
+      const [inicio] = horaTexto.split(" - ");
       let [hora, minuto] = inicio.trim().split(":");
       hora = parseInt(hora);
       minuto = parseInt(minuto || "0");
@@ -151,13 +159,18 @@
       return fecha;
     }
 
+    // Envío del formulario usando FormData convertido a URLSearchParams
     document.getElementById("formulario").addEventListener("submit", async e => {
       e.preventDefault();
       const form = new FormData(e.target);
       const body = new URLSearchParams(form).toString();
 
       try {
-        const res = await fetch(API, { method: "POST", body });
+        const res = await fetch(API, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body
+        });
         const texto = await res.text();
         const div = document.getElementById("mensaje");
         div.textContent = texto;
@@ -172,12 +185,7 @@
       }
     });
 
-    function cargarDisponibilidad() {
-      const s = document.createElement("script");
-      s.src = `${API}?action=obtenerDisponibilidad&callback=mostrarDias`;
-      document.body.appendChild(s);
-    }
-
+    // Inicializar
     window.onload = cargarDisponibilidad;
   </script>
 </body>
