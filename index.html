@@ -4,56 +4,58 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reservas Escalada</title>
-  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet"/>
+
+  <!-- Calendario -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
       background-color: #f3f3f3;
       margin: 0;
-      padding: 30px;
+      padding: 20px;
       display: flex;
       justify-content: center;
     }
     .container {
-      max-width: 500px;
+      max-width: 520px;
       background: #fff;
-      padding: 30px;
+      padding: 24px;
       border-radius: 14px;
       box-shadow: 0 0 20px rgba(0,0,0,0.1);
       width: 100%;
     }
-    h2 {
-      text-align: center;
-      color: #333;
-    }
-    label {
-      font-weight: bold;
-      display: block;
-      margin-top: 16px;
-    }
+    h2 { text-align: center; color: #333; margin: 0 0 14px 0; }
+    label { font-weight: 700; display: block; margin-top: 14px; }
     input, select, button {
       width: 100%;
       padding: 12px;
       margin-top: 6px;
-      border-radius: 8px;
+      border-radius: 10px;
       border: 1px solid #ccc;
-      font-size: 15px;
+      font-size: 16px; /* evita zoom iOS */
+      box-sizing: border-box;
     }
     button[type="submit"] {
       background-color: #ffa726;
       color: white;
       border: none;
-      font-weight: bold;
-      margin-top: 20px;
+      font-weight: 800;
+      margin-top: 18px;
       cursor: pointer;
+      border-radius: 12px;
     }
     #mensaje {
       display: none;
       padding: 12px;
       border-radius: 10px;
-      font-weight: 600;
-      margin-top: 20px;
-      text-align: center;
+      font-weight: 700;
+      margin-top: 16px;
+      text-align: left;
+      line-height: 1.35;
+      font-size: 14px;
     }
     #mensaje.ok {
       background: #e6f4ea;
@@ -65,66 +67,136 @@
       color: #c62828;
       border-left: 6px solid #c62828;
     }
+    #diaTexto{
+      display:block;
+      margin-top: 6px;
+      color:#666;
+      font-size: 13px;
+    }
+    .flatpickr-calendar { z-index: 9999 !important; }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>Reservas Escalada</h2>
-    <form id="formulario">
 
-      <label>Selecciona un día:</label>
-      <select id="dia" name="dia" required></select>
+    <form id="formulario">
+      <label>Selecciona una fecha:</label>
+      <input type="text" id="fecha" name="fecha" placeholder="Elige un día en el calendario" readonly required />
+      <small id="diaTexto"></small>
 
       <label>Horario:</label>
-      <select id="horario" name="horario" required></select>
+      <select id="horario" name="horario" required>
+        <option value="">Selecciona una fecha primero</option>
+      </select>
 
       <label>Nombre:</label>
-      <input name="nombre" required />
+      <input name="nombre" autocomplete="name" required />
 
       <label>Correo electrónico:</label>
-      <input name="correo" type="email" required />
+      <input name="correo" type="email" autocomplete="email" required />
 
       <label>Celular:</label>
-      <input name="celular" required />
+      <input name="celular" type="tel" inputmode="numeric" autocomplete="tel" required />
 
       <button type="submit">Reservar</button>
     </form>
+
     <div id="mensaje"></div>
   </div>
 
   <script>
     const API = "https://script.google.com/macros/s/AKfycbykUuF159VAhVosvXT-8EJtcdiFmIFNE5StnKuE2HcafvTv0zdT5NkcF-GUgsyntDmI/exec";
 
-    // Carga la disponibilidad al cargar la página
+    let disponibilidad = {};
+    let fechaSeleccionada = "";
+
+    // JSONP
     function cargarDisponibilidad() {
       const s = document.createElement("script");
-      s.src = `${API}?action=obtenerDisponibilidad&callback=mostrarDias`;
+      s.src = `${API}?action=obtenerDisponibilidad&callback=mostrarDisponibilidad`;
       document.body.appendChild(s);
     }
 
-    // Pinta los días y guarda la disponibilidad global
-    function mostrarDias(data) {
-      const diaSelect = document.getElementById("dia");
-      diaSelect.innerHTML = '<option value="">Selecciona un día</option>';
-      Object.keys(data).forEach(dia => {
-        const opt = document.createElement("option");
-        opt.value = dia;
-        opt.textContent = dia;
-        diaSelect.appendChild(opt);
-      });
-      window.disponibilidad = data;
+    function mostrarDisponibilidad(data) {
+      if (!data || typeof data !== "object") {
+        mostrarMensaje("❌ Error al cargar disponibilidad.", false);
+        return;
+      }
+      disponibilidad = data;
+      initCalendar();
     }
 
-    // Al cambiar de día, carga horarios válidos (mínimo 2 horas antes)
-    document.getElementById("dia").addEventListener("change", e => {
-      const horarios = window.disponibilidad[e.target.value] || [];
+    function initCalendar() {
+      const diasDisponibles = new Set(Object.keys(disponibilidad));
+
+      const mapDayNameToIndex = {
+        "Domingo": 0,
+        "Lunes": 1,
+        "Martes": 2,
+        "Miércoles": 3,
+        "Miercoles": 3,
+        "Jueves": 4,
+        "Viernes": 5,
+        "Sábado": 6,
+        "Sabado": 6
+      };
+
+      const allowedIndexes = new Set(
+        Array.from(diasDisponibles)
+          .map(d => mapDayNameToIndex[d])
+          .filter(v => v !== undefined)
+      );
+
+      const input = document.getElementById("fecha");
+      if (input._flatpickr) input._flatpickr.destroy();
+
+      const fp = flatpickr("#fecha", {
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        maxDate: new Date().fp_incr(90),
+        disableMobile: true,
+        enable: [
+          function(date){
+            return allowedIndexes.has(date.getDay());
+          }
+        ],
+        onChange: function(selectedDates, dateStr){
+          fechaSeleccionada = dateStr;
+          const diaNombre = obtenerNombreDia(dateStr);
+          document.getElementById("diaTexto").textContent = `Día: ${diaNombre}`;
+          cargarHorariosParaFecha(dateStr);
+          fp.close();
+        }
+      });
+
+      resetUI();
+    }
+
+    function resetUI(){
+      fechaSeleccionada = "";
+      document.getElementById("diaTexto").textContent = "";
+      document.getElementById("horario").innerHTML = `<option value="">Selecciona una fecha primero</option>`;
+    }
+
+    function obtenerNombreDia(yyyy_mm_dd) {
+      const [y,m,d] = yyyy_mm_dd.split("-").map(Number);
+      const dt = new Date(y, m-1, d, 12, 0, 0);
+      const dias = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+      return dias[dt.getDay()];
+    }
+
+    function cargarHorariosParaFecha(yyyy_mm_dd) {
+      const diaNombre = obtenerNombreDia(yyyy_mm_dd);
+      const horarios = disponibilidad[diaNombre] || [];
       const horarioSelect = document.getElementById("horario");
       horarioSelect.innerHTML = '<option value="">Selecciona un horario</option>';
+
       const ahora = new Date();
 
       horarios.forEach(horario => {
-        const fechaHorario = calcularFechaHora(e.target.value, horario);
-        const diferenciaHoras = (fechaHorario - ahora) / (1000 * 60 * 60);
+        const fechaInicio = calcularInicioEvento(yyyy_mm_dd, horario);
+        const diferenciaHoras = (fechaInicio - ahora) / (1000 * 60 * 60);
         if (diferenciaHoras >= 2) {
           const opt = document.createElement("option");
           opt.value = horario;
@@ -132,60 +204,85 @@
           horarioSelect.appendChild(opt);
         }
       });
-    });
 
-    // Calcula fecha y hora del horario en la semana actual
-    function calcularFechaHora(dia, horaTexto) {
-      const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-      const hoy = new Date();
-      const diaActual = hoy.getDay();
-      const diaObjetivo = diasSemana.indexOf(dia);
-      const diasRestantes = (diaObjetivo - diaActual + 7) % 7;
-
-      const fecha = new Date();
-      fecha.setDate(hoy.getDate() + diasRestantes);
-
-      const [inicio] = horaTexto.split(" - ");
-      let [hora, minuto] = inicio.trim().split(":");
-      hora = parseInt(hora);
-      minuto = parseInt(minuto || "0");
-      const esPM = inicio.toLowerCase().includes("p.m.");
-      const esAM = inicio.toLowerCase().includes("a.m.");
-
-      if (esPM && hora !== 12) hora += 12;
-      if (esAM && hora === 12) hora = 0;
-
-      fecha.setHours(hora, minuto, 0, 0);
-      return fecha;
+      if (horarioSelect.options.length === 1) {
+        horarioSelect.innerHTML = '<option value="">No hay horarios con mínimo 2 horas</option>';
+      }
     }
 
-    // Envío del formulario usando FormData convertido a URLSearchParams
+    // Calcula inicio real del evento usando la fecha elegida + la hora del horario
+    function calcularInicioEvento(yyyy_mm_dd, horarioTexto) {
+      const [y,m,d] = yyyy_mm_dd.split("-").map(Number);
+      const base = new Date(y, m-1, d, 12, 0, 0);
+
+      const txt = String(horarioTexto).replace(/\u2013|\u2014/g, "-");
+      const partes = txt.split("-");
+      const inicio = (partes[0] || "").trim().toLowerCase()
+        .replace(/\s+/g," ")
+        .replace("a. m.","am").replace("p. m.","pm")
+        .replace("a.m.","am").replace("p.m.","pm")
+        .replace("a m","am").replace("p m","pm")
+        .trim();
+
+      // 24h "19:00"
+      if (/^\d{1,2}:\d{2}$/.test(inicio)) {
+        const [hh, mm] = inicio.split(":").map(Number);
+        base.setHours(hh, mm, 0, 0);
+        return base;
+      }
+
+      const isPM = inicio.includes("pm");
+      const isAM = inicio.includes("am");
+      const m2 = inicio.match(/(\d{1,2})(?::(\d{2}))?/);
+      let hh = m2 ? Number(m2[1]) : 0;
+      let mm = m2 && m2[2] ? Number(m2[2]) : 0;
+
+      if (isPM && hh < 12) hh += 12;
+      if (isAM && hh === 12) hh = 0;
+
+      base.setHours(hh, mm, 0, 0);
+      return base;
+    }
+
+    // Envío
     document.getElementById("formulario").addEventListener("submit", async e => {
       e.preventDefault();
+
+      if (!fechaSeleccionada) return mostrarMensaje("❌ Selecciona una fecha.", false);
+
+      // blindaje: asegurar el valor
+      document.querySelector('input[name="fecha"]').value = fechaSeleccionada;
+
       const form = new FormData(e.target);
-      const body = new URLSearchParams(form).toString();
+      const body = new URLSearchParams();
+      for (const pair of form.entries()) body.append(pair[0], pair[1]);
 
       try {
         const res = await fetch(API, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body
+          body: body.toString()
         });
+
         const texto = await res.text();
-        const div = document.getElementById("mensaje");
-        div.textContent = texto;
-        div.className = texto.includes("✅") ? "ok" : "err";
-        div.style.display = "block";
-        if (texto.includes("✅")) e.target.reset();
+        mostrarMensaje(texto, texto.includes("✅"));
+        if (texto.includes("✅")) {
+          e.target.reset();
+          resetUI();
+          cargarDisponibilidad(); // refrescar cupos
+        }
       } catch {
-        const div = document.getElementById("mensaje");
-        div.textContent = "❌ Error al enviar la reserva.";
-        div.className = "err";
-        div.style.display = "block";
+        mostrarMensaje("❌ Error al enviar la reserva.", false);
       }
     });
 
-    // Inicializar
+    function mostrarMensaje(msg, ok) {
+      const div = document.getElementById("mensaje");
+      div.textContent = msg;
+      div.className = ok ? "ok" : "err";
+      div.style.display = "block";
+    }
+
     window.onload = cargarDisponibilidad;
   </script>
 </body>
