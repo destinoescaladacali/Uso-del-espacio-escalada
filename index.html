@@ -35,7 +35,7 @@
       margin-top: 6px;
       border-radius: 10px;
       border: 1px solid #ccc;
-      font-size: 16px;
+      font-size: 16px; /* evita zoom iOS */
       box-sizing: border-box;
     }
     button[type="submit"] {
@@ -47,6 +47,26 @@
       cursor: pointer;
       border-radius: 12px;
     }
+    button[disabled]{
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    /* Spinner dentro del botón */
+    #btnSubmit .spinner{
+      display:none;
+      margin-left:8px;
+      width:14px;
+      height:14px;
+      border:2px solid rgba(255,255,255,.6);
+      border-top-color:#fff;
+      border-radius:50%;
+      animation: spin .8s linear infinite;
+      vertical-align: middle;
+    }
+    #btnSubmit.loading .spinner{ display:inline-block; }
+    @keyframes spin { to { transform: rotate(360deg);} }
+
     #mensaje {
       display: none;
       padding: 12px;
@@ -99,7 +119,9 @@
       <label>Celular:</label>
       <input name="celular" type="tel" inputmode="numeric" autocomplete="tel" required />
 
-      <button type="submit">Reservar</button>
+      <button id="btnSubmit" type="submit">
+        Reservar <span class="spinner"></span>
+      </button>
     </form>
 
     <div id="mensaje"></div>
@@ -110,15 +132,13 @@
 
     let disponibilidad = {};
     let fechaSeleccionada = "";
-    let jsonpScriptEl = null;
+    let isSubmitting = false;
 
-    // JSONP (evita acumular scripts)
+    // JSONP
     function cargarDisponibilidad() {
-      if (jsonpScriptEl && jsonpScriptEl.parentNode) jsonpScriptEl.parentNode.removeChild(jsonpScriptEl);
-
-      jsonpScriptEl = document.createElement("script");
-      jsonpScriptEl.src = `${API}?action=obtenerDisponibilidad&callback=mostrarDisponibilidad&_=${Date.now()}`;
-      document.body.appendChild(jsonpScriptEl);
+      const s = document.createElement("script");
+      s.src = `${API}?action=obtenerDisponibilidad&callback=mostrarDisponibilidad&_=${Date.now()}`;
+      document.body.appendChild(s);
     }
 
     function mostrarDisponibilidad(data) {
@@ -159,7 +179,11 @@
         minDate: "today",
         maxDate: new Date().fp_incr(90),
         disableMobile: true,
-        enable: [date => allowedIndexes.has(date.getDay())],
+        enable: [
+          function(date){
+            return allowedIndexes.has(date.getDay());
+          }
+        ],
         onChange: function(selectedDates, dateStr){
           fechaSeleccionada = dateStr;
           const diaNombre = obtenerNombreDia(dateStr);
@@ -241,11 +265,25 @@
       return base;
     }
 
+    // Envío con anti-doble clic + estado
     document.getElementById("formulario").addEventListener("submit", async e => {
       e.preventDefault();
 
+      if (isSubmitting) return; // ✅ bloquea doble submit
       if (!fechaSeleccionada) return mostrarMensaje("❌ Selecciona una fecha.", false);
 
+      isSubmitting = true;
+
+      const btn = document.getElementById("btnSubmit");
+      btn.disabled = true;
+      btn.classList.add("loading");
+
+      // Cambiar texto visible
+      const textNode = btn.firstChild; // "Reservar "
+      const oldText = textNode.textContent;
+      textNode.textContent = "Reservando... ";
+
+      // Blindaje fecha
       document.querySelector('input[name="fecha"]').value = fechaSeleccionada;
 
       const form = new FormData(e.target);
@@ -265,10 +303,16 @@
         if (texto.includes("✅")) {
           e.target.reset();
           resetUI();
-          cargarDisponibilidad();
+          cargarDisponibilidad(); // refrescar cupos
         }
       } catch {
         mostrarMensaje("❌ Error al enviar la reserva.", false);
+      } finally {
+        // ✅ reactivar siempre
+        isSubmitting = false;
+        btn.disabled = false;
+        btn.classList.remove("loading");
+        textNode.textContent = oldText;
       }
     });
 
