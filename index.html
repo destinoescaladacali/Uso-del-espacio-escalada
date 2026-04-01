@@ -6,7 +6,6 @@
   <title>Reservas Escalada</title>
   <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet"/>
 
-  <!-- Calendario -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
@@ -35,7 +34,7 @@
       margin-top: 6px;
       border-radius: 10px;
       border: 1px solid #ccc;
-      font-size: 16px; /* evita zoom iOS */
+      font-size: 16px;
       box-sizing: border-box;
     }
     button[type="submit"] {
@@ -52,7 +51,6 @@
       cursor: not-allowed;
     }
 
-    /* Spinner dentro del botón */
     #btnSubmit .spinner{
       display:none;
       margin-left:8px;
@@ -131,10 +129,10 @@
     const API = "https://script.google.com/macros/s/AKfycbykUuF159VAhVosvXT-8EJtcdiFmIFNE5StnKuE2HcafvTv0zdT5NkcF-GUgsyntDmI/exec";
 
     let disponibilidad = {};
+    let fechasBloqueadas = [];
     let fechaSeleccionada = "";
     let isSubmitting = false;
 
-    // JSONP
     function cargarDisponibilidad() {
       const s = document.createElement("script");
       s.src = `${API}?action=obtenerDisponibilidad&callback=mostrarDisponibilidad&_=${Date.now()}`;
@@ -146,7 +144,9 @@
         mostrarMensaje("❌ Error al cargar disponibilidad.", false);
         return;
       }
-      disponibilidad = data;
+
+      disponibilidad = data.disponibilidad || {};
+      fechasBloqueadas = data.fechasBloqueadas || [];
       initCalendar();
     }
 
@@ -184,6 +184,7 @@
             return allowedIndexes.has(date.getDay());
           }
         ],
+        disable: fechasBloqueadas,
         onChange: function(selectedDates, dateStr){
           fechaSeleccionada = dateStr;
           const diaNombre = obtenerNombreDia(dateStr);
@@ -265,11 +266,10 @@
       return base;
     }
 
-    // Envío con anti-doble clic + estado
     document.getElementById("formulario").addEventListener("submit", async e => {
       e.preventDefault();
 
-      if (isSubmitting) return; // ✅ bloquea doble submit
+      if (isSubmitting) return;
       if (!fechaSeleccionada) return mostrarMensaje("❌ Selecciona una fecha.", false);
 
       isSubmitting = true;
@@ -278,12 +278,10 @@
       btn.disabled = true;
       btn.classList.add("loading");
 
-      // Cambiar texto visible
-      const textNode = btn.firstChild; // "Reservar "
+      const textNode = btn.firstChild;
       const oldText = textNode.textContent;
       textNode.textContent = "Reservando... ";
 
-      // Blindaje fecha
       document.querySelector('input[name="fecha"]').value = fechaSeleccionada;
 
       const form = new FormData(e.target);
@@ -303,12 +301,11 @@
         if (texto.includes("✅")) {
           e.target.reset();
           resetUI();
-          cargarDisponibilidad(); // refrescar cupos
+          cargarDisponibilidad();
         }
       } catch {
         mostrarMensaje("❌ Error al enviar la reserva.", false);
       } finally {
-        // ✅ reactivar siempre
         isSubmitting = false;
         btn.disabled = false;
         btn.classList.remove("loading");
