@@ -180,10 +180,19 @@
         maxDate: new Date().fp_incr(90),
         disableMobile: true,
         enable: [
-          function(date){
-            return allowedIndexes.has(date.getDay());
-          }
-        ],
+  function(date){
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth()+1).padStart(2,"0");
+    const dd = String(date.getDate()).padStart(2,"0");
+    const fechaStr = `${yyyy}-${mm}-${dd}`;
+
+    // ❌ bloquear fechas específicas
+    if (fechasBloqueadas.includes(fechaStr)) return false;
+
+    // ✅ solo permitir días disponibles
+    return allowedIndexes.has(date.getDay());
+  }
+],,
         disable: fechasBloqueadas,
         onChange: function(selectedDates, dateStr){
           fechaSeleccionada = dateStr;
