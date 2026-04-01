@@ -6,6 +6,7 @@
   <title>Reservas Escalada</title>
   <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet"/>
 
+  <!-- Calendario -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
@@ -26,8 +27,16 @@
       box-shadow: 0 0 20px rgba(0,0,0,0.1);
       width: 100%;
     }
-    h2 { text-align: center; color: #333; margin: 0 0 14px 0; }
-    label { font-weight: 700; display: block; margin-top: 14px; }
+    h2 {
+      text-align: center;
+      color: #333;
+      margin: 0 0 14px 0;
+    }
+    label {
+      font-weight: 700;
+      display: block;
+      margin-top: 14px;
+    }
     input, select, button {
       width: 100%;
       padding: 12px;
@@ -46,24 +55,28 @@
       cursor: pointer;
       border-radius: 12px;
     }
-    button[disabled]{
+    button[disabled] {
       opacity: .6;
       cursor: not-allowed;
     }
 
-    #btnSubmit .spinner{
-      display:none;
-      margin-left:8px;
-      width:14px;
-      height:14px;
-      border:2px solid rgba(255,255,255,.6);
-      border-top-color:#fff;
-      border-radius:50%;
+    #btnSubmit .spinner {
+      display: none;
+      margin-left: 8px;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,.6);
+      border-top-color: #fff;
+      border-radius: 50%;
       animation: spin .8s linear infinite;
       vertical-align: middle;
     }
-    #btnSubmit.loading .spinner{ display:inline-block; }
-    @keyframes spin { to { transform: rotate(360deg);} }
+    #btnSubmit.loading .spinner {
+      display: inline-block;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
     #mensaje {
       display: none;
@@ -85,13 +98,17 @@
       color: #c62828;
       border-left: 6px solid #c62828;
     }
-    #diaTexto{
-      display:block;
+
+    #diaTexto {
+      display: block;
       margin-top: 6px;
-      color:#666;
+      color: #666;
       font-size: 13px;
     }
-    .flatpickr-calendar { z-index: 9999 !important; }
+
+    .flatpickr-calendar {
+      z-index: 9999 !important;
+    }
   </style>
 </head>
 <body>
@@ -180,21 +197,17 @@
         maxDate: new Date().fp_incr(90),
         disableMobile: true,
         enable: [
-  function(date){
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth()+1).padStart(2,"0");
-    const dd = String(date.getDate()).padStart(2,"0");
-    const fechaStr = `${yyyy}-${mm}-${dd}`;
+          function(date) {
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, "0");
+            const dd = String(date.getDate()).padStart(2, "0");
+            const fechaStr = `${yyyy}-${mm}-${dd}`;
 
-    // ❌ bloquear fechas específicas
-    if (fechasBloqueadas.includes(fechaStr)) return false;
-
-    // ✅ solo permitir días disponibles
-    return allowedIndexes.has(date.getDay());
-  }
-],,
-        disable: fechasBloqueadas,
-        onChange: function(selectedDates, dateStr){
+            if (fechasBloqueadas.includes(fechaStr)) return false;
+            return allowedIndexes.has(date.getDay());
+          }
+        ],
+        onChange: function(selectedDates, dateStr) {
           fechaSeleccionada = dateStr;
           const diaNombre = obtenerNombreDia(dateStr);
           document.getElementById("diaTexto").textContent = `Día: ${diaNombre}`;
@@ -206,16 +219,16 @@
       resetUI();
     }
 
-    function resetUI(){
+    function resetUI() {
       fechaSeleccionada = "";
       document.getElementById("diaTexto").textContent = "";
       document.getElementById("horario").innerHTML = `<option value="">Selecciona una fecha primero</option>`;
     }
 
     function obtenerNombreDia(yyyy_mm_dd) {
-      const [y,m,d] = yyyy_mm_dd.split("-").map(Number);
-      const dt = new Date(y, m-1, d, 12, 0, 0);
-      const dias = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
+      const [y, m, d] = yyyy_mm_dd.split("-").map(Number);
+      const dt = new Date(y, m - 1, d, 12, 0, 0);
+      const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
       return dias[dt.getDay()];
     }
 
@@ -230,6 +243,7 @@
       horarios.forEach(horario => {
         const fechaInicio = calcularInicioEvento(yyyy_mm_dd, horario);
         const diferenciaHoras = (fechaInicio - ahora) / (1000 * 60 * 60);
+
         if (diferenciaHoras >= 2) {
           const opt = document.createElement("option");
           opt.value = horario;
@@ -244,16 +258,16 @@
     }
 
     function calcularInicioEvento(yyyy_mm_dd, horarioTexto) {
-      const [y,m,d] = yyyy_mm_dd.split("-").map(Number);
-      const base = new Date(y, m-1, d, 12, 0, 0);
+      const [y, m, d] = yyyy_mm_dd.split("-").map(Number);
+      const base = new Date(y, m - 1, d, 12, 0, 0);
 
       const txt = String(horarioTexto).replace(/\u2013|\u2014/g, "-");
       const partes = txt.split("-");
       const inicio = (partes[0] || "").trim().toLowerCase()
-        .replace(/\s+/g," ")
-        .replace("a. m.","am").replace("p. m.","pm")
-        .replace("a.m.","am").replace("p.m.","pm")
-        .replace("a m","am").replace("p m","pm")
+        .replace(/\s+/g, " ")
+        .replace("a. m.", "am").replace("p. m.", "pm")
+        .replace("a.m.", "am").replace("p.m.", "pm")
+        .replace("a m", "am").replace("p m", "pm")
         .trim();
 
       if (/^\d{1,2}:\d{2}$/.test(inicio)) {
